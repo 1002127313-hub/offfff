@@ -71,7 +71,7 @@
             position: absolute;
             top: 0;
             left: 0;
-            cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle></svg>'), auto;
+            cursor: crosshair;
             touch-action: none;
             transition: opacity 0.5s ease;
         }
@@ -100,10 +100,6 @@
             box-shadow: 0 6px 20px rgba(74, 144, 226, 0.4);
         }
 
-        button:active {
-            transform: translateY(0);
-        }
-
         .message {
             margin-top: 20px;
             font-weight: bold;
@@ -116,27 +112,46 @@
         .message.visible {
             opacity: 1;
         }
+        
+        .error-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #ffebee;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 20px;
+            color: #c62828;
+            font-size: 0.9rem;
+            z-index: 5;
+            display: none;
+        }
     </style>
 </head>
 <body>
 
     <div class="header">
-        <h1>הפתעה מחכה לך! 🎁</h1>
-        <p>גרד את הכרטיס כדי לגלות מה מסתתר מתחת...</p>
+        <h1>גרד וגלה! 🎁</h1>
+        <p>גרד את הציפוי כדי לראות את התמונה pic.png</p>
     </div>
 
     <div class="scratch-card-wrapper">
         <div class="scratch-container" id="container">
-            <!-- שימוש בתמונה אמיתית מרשת האינטרנט כדוגמה -->
-            <img src="https://picsum.photos/600/600?random=1" alt="הפתעה" id="hiddenImage">
+            <!-- נתיב התמונה המעודכן -->
+            <img src="pic.png" alt="תמונה מוסתרת" id="hiddenImage" onerror="handleImageError()">
+            <div id="errorMsg" class="error-overlay">אופס! הקובץ pic.png לא נמצא בתיקייה.</div>
             <canvas id="scratchCanvas"></canvas>
         </div>
     </div>
 
-    <div class="message" id="winMessage">איזה יופי! גילית את כל התמונה! 🎉</div>
+    <div class="message" id="winMessage">איזה יופי! התמונה נחשפה! 🎉</div>
 
     <div class="controls">
-        <button onclick="resetGame()">כרטיס חדש</button>
+        <button onclick="resetGame()">נסה שוב</button>
     </div>
 
     <script>
@@ -144,15 +159,20 @@
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
         const container = document.getElementById('container');
         const winMessage = document.getElementById('winMessage');
+        const errorMsg = document.getElementById('errorMsg');
         let isDrawing = false;
         let isFinished = false;
 
-        // הגדרת גודל הקנבס לפי המיכל שלו
+        function handleImageError() {
+            errorMsg.style.display = 'flex';
+            canvas.style.display = 'none';
+        }
+
         function initCanvas() {
             canvas.width = container.offsetWidth;
             canvas.height = container.offsetHeight;
             
-            // מילוי רקע אפור מטאלי
+            // מילוי רקע אפור
             const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
             gradient.addColorStop(0, '#bdc3c7');
             gradient.addColorStop(0.5, '#95a5a6');
@@ -161,18 +181,11 @@
             ctx.fillStyle = gradient;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // הוספת דוגמה של נקודות כדי שייראה כמו כרטיס אמיתי
-            ctx.fillStyle = 'rgba(255,255,255,0.1)';
-            for(let i=0; i<100; i++) {
-                ctx.beginPath();
-                ctx.arc(Math.random()*canvas.width, Math.random()*canvas.height, 1, 0, Math.PI*2);
-                ctx.fill();
-            }
-
             // טקסט הנחיה
             ctx.fillStyle = '#2c3e50';
             ctx.font = 'bold 24px system-ui';
             ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
             ctx.fillText('גרד כאן!', canvas.width / 2, canvas.height / 2);
             
             isFinished = false;
@@ -180,7 +193,6 @@
             winMessage.classList.remove('visible');
         }
 
-        // פונקציה לבדיקת אחוז הגירוד
         function checkProgress() {
             if (isFinished) return;
 
@@ -196,8 +208,7 @@
 
             const percent = (transparentPixels / (pixels.length / 4)) * 100;
             
-            // אם המשתמש גירד יותר מ-50%, נחשוף הכל
-            if (percent > 50) {
+            if (percent > 45) {
                 isFinished = true;
                 canvas.style.opacity = '0';
                 setTimeout(() => {
@@ -210,7 +221,6 @@
         function getCoordinates(e) {
             const rect = canvas.getBoundingClientRect();
             let x, y;
-
             if (e.touches) {
                 x = e.touches[0].clientX - rect.left;
                 y = e.touches[0].clientY - rect.top;
@@ -223,13 +233,12 @@
 
         function scratch(e) {
             if (!isDrawing || isFinished) return;
-
             const { x, y } = getCoordinates(e);
 
             ctx.globalCompositeOperation = 'destination-out';
             ctx.lineJoin = 'round';
             ctx.lineCap = 'round';
-            ctx.lineWidth = 40; // עובי הגירוד
+            ctx.lineWidth = 45;
 
             ctx.beginPath();
             if (this.lastX && this.lastY) {
@@ -242,7 +251,6 @@
 
             this.lastX = x;
             this.lastY = y;
-            
             checkProgress();
         }
 
@@ -261,30 +269,21 @@
         }
 
         function resetGame() {
-            // החלפת תמונה בכל פעם שמתחילים מחדש
             const img = document.getElementById('hiddenImage');
-            img.src = `https://picsum.photos/600/600?random=${Math.random()}`;
+            // רענון התמונה למקרה שהשתנתה בשרת
+            img.src = 'pic.png?t=' + new Date().getTime();
+            errorMsg.style.display = 'none';
+            canvas.style.display = 'block';
             initCanvas();
         }
 
-        // חיבור אירועים
         canvas.addEventListener('mousedown', startDrawing);
         canvas.addEventListener('mousemove', scratch);
         window.addEventListener('mouseup', stopDrawing);
-
-        canvas.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            startDrawing.call(canvas, e);
-        }, { passive: false });
-        
-        canvas.addEventListener('touchmove', (e) => {
-            e.preventDefault();
-            scratch.call(canvas, e);
-        }, { passive: false });
-        
+        canvas.addEventListener('touchstart', (e) => { e.preventDefault(); startDrawing.call(canvas, e); }, { passive: false });
+        canvas.addEventListener('touchmove', (e) => { e.preventDefault(); scratch.call(canvas, e); }, { passive: false });
         canvas.addEventListener('touchend', stopDrawing);
 
-        // אתחול ראשוני
         window.onload = initCanvas;
     </script>
 </body>
